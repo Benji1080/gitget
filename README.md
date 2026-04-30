@@ -1,11 +1,11 @@
-## ⚡ Mirror external github releases into your repo (and download):
+## ⚡ کلون کردن فایل های از رلیز یک رپو در رپوی شما و دانلود کردن آنها در محدودیت فعلی
 
-1. In your repository, create a new file at `.github/workflows/gitget.yml`.
-2. Paste the following YAML and replace the placeholders:
-   - `SOURCE_OWNER/SOURCE_REPO` with the source repository (e.g., `torvalds/linux`).
-   - `v1.2.3` with the release tag that holds the asset.
-   - `my-file.zip` with the exact filename of the asset.
-   - `assets/` with the folder where you want the file stored (can be `.` for root).
+1. در ریپوی خودتون یه فایل در این آدرس ایجاد کنید: `.github/workflows/gitget.yml`.
+2. کد زیر رو توش پیست کنید و دقت کنید عبارات متغیر رو به نسبت کارخ ودتون باید تغییر بدید:
+   - `SOURCE_OWNER/SOURCE_REPO` ریپوی سورس که قراره ازش کلون و دانلود کنید (e.g., `torvalds/linux`).
+   - `v1.2.3` رلیز تگ مورد نظر، دقا کنید دقیق وارد بشه.
+   - `my-file.zip` نام دقیق فایل یا فایل هایی که قرار کلون بشن.
+   - `assets/` پوشه ای که قرار فایلها توش دانلود بشه (can be `.` for root).
 
 ```yaml
 name: gitget
@@ -45,13 +45,6 @@ jobs:
           branch: main   # or the branch you want to commit to
 ```
 
-3. Commit the workflow file to your default branch (usually `main`).
-
-## 🚀 How to run it
-
-1. Go to your repository on GitHub.
-2. Click the **Actions** tab.
-3. Select the **gitget** workflow on the left.
-4. Click the **Run workflow** button and then **Run workflow**.
-
-The workflow will immediately download the asset from the source release and commit it to your repository. You’ll see the new file in your repo’s file tree once the run finishes.
+3. فایل رو کامیت و ثبت کنید.
+4. 4. بعد برید قسمت اکشن ها و این اکشن جدید رو اجرا کنید و صبر کنید کارش رو بکنه.
+5. برگردید توی رپوی خودتون و فایل هاتون رو از اونجا براحتی دانلود کنید :)
