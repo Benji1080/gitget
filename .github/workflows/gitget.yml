@@ -1,4 +1,4 @@
-name: Copy Release Asset
+name: gitget
 
 on:
   workflow_dispatch:   # allows you to trigger the copy manually from the Actions tab
