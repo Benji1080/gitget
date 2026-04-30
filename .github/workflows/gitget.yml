@@ -1,8 +1,8 @@
 name: gitget
 
 on:
-  workflow_dispatch:   # manual trigger
-  # schedule:          # uncomment to run automatically (e.g., weekly)
+  workflow_dispatch:
+  # schedule:
   #   - cron: '0 0 * * 0'
 
 permissions:
@@ -12,45 +12,45 @@ jobs:
   copy:
     runs-on: ubuntu-latest
     steps:
-      # 1. Checkout your own repository
       - name: Checkout my repo
         uses: actions/checkout@v4
 
-      # 2. Download the release asset(s) from the other repository
+      # ───── DIAGNOSTIC: Show available assets ─────
+      - name: List source release assets (for debugging)
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}   # not needed for public repos
+        run: |
+          echo "Checking release tag: v3.2.0"
+          gh release view v3.2.0 --repo jely2002/youtube-dl-gui --json assets --jq '.assets[].name' || echo "❌ Tag not found, or no assets. Check the exact tag name on: https://github.com/jely2002/youtube-dl-gui/releases"
+
+      # ───── DOWNLOAD ─────
       - name: Download release asset(s)
         env:
-          # The default GITHUB_TOKEN works for public repos.
-          # If the source repo was private, you would need a PAT
-          # stored as a secret (e.g., SOURCE_TOKEN) and pass it here.
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          # ─── CONFIGURE THESE THREE VARIABLES ──────────────────
           SOURCE_REPO="jely2002/youtube-dl-gui"
-          SOURCE_TAG="v3.2.0"                     # ← check the exact tag name!
+          SOURCE_TAG="v3.2.0"                     # ← CHANGE THIS IF THE TAG IS "3.2.0" (no v)
           ASSETS="Open.Video.Downloader_3.2.0_x64-portable.zip"
-          # To download multiple files, separate with commas:
-          # ASSETS="file1.zip,file2.tar.gz"
-          # To download ALL assets from the release, use:
-          # ASSETS="*"
+          # ASSETS="*"   # for all files
 
-          # ─── Download logic ───────────────────────────────────
-          if [ "$ASSETS" = "*" ] || [ "$ASSETS" = "all" ]; then
-            echo "⬇️ Downloading ALL assets from ${SOURCE_REPO}@${SOURCE_TAG} ..."
-            gh release download "$SOURCE_TAG" \
-              --repo "$SOURCE_REPO" \
-              --pattern '*'
+          if [ "$ASSETS" = "*" ]; then
+            echo "⬇️ Downloading ALL assets..."
+            gh release download "$SOURCE_TAG" --repo "$SOURCE_REPO" --pattern '*'
           else
             IFS=',' read -ra FILES <<< "$ASSETS"
             for file in "${FILES[@]}"; do
               file=$(echo "$file" | xargs)   # trim whitespace
-              echo "⬇️ Downloading: $file"
-              gh release download "$SOURCE_TAG" \
-                --repo "$SOURCE_REPO" \
-                --pattern "$file"
+              if [ -z "$file" ]; then continue; fi
+              echo "⬇️ Downloading: '$file'"
+              gh release download "$SOURCE_TAG" --repo "$SOURCE_REPO" --pattern "$file" || {
+                echo "❌ Failed to download '$file'. Check if the filename is correct (case‑sensitive)."
+                echo "Available assets (from previous step above) can help you verify the name."
+                exit 1
+              }
             done
           fi
 
-      # 3. Commit and push the new file(s) to your repository
+      # ───── COMMIT AND PUSH ─────
       - name: Commit and push
         uses: stefanzweifel/git-auto-commit-action@v5
         with:
