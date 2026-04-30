@@ -1,11 +1,10 @@
 name: gitget
 
 on:
-  workflow_dispatch:   # allows you to trigger the copy manually from the Actions tab
-  # schedule:          # optional: uncomment to run on a schedule (cron)
+  workflow_dispatch:   # manual trigger
+  # schedule:          # uncomment to run automatically (e.g., weekly)
   #   - cron: '0 0 * * 0'
 
-# Ensure the workflow has write access to the repo
 permissions:
   contents: write
 
@@ -13,23 +12,47 @@ jobs:
   copy:
     runs-on: ubuntu-latest
     steps:
-      # 1. Checkout your own repository so we can add the file
+      # 1. Checkout your own repository
       - name: Checkout my repo
         uses: actions/checkout@v4
 
-      # 2. Download the release asset from the other repository
-      - name: Download release asset
-        uses: robinraju/release-downloader@v1.11
-        with:
-          repository: "jely2002/youtube-dl-gui"   # the repo that has the release
-          tag: "v3.2.0"                            # the release tag
-          fileName: "Open.Video.Downloader_3.2.0_x64-portable.zip"                  # the asset file name, can be multiple comma separated.
-          out-file-path: "."                  # folder in your repo to store the file
-          # token: ${{ secrets.SOURCE_TOKEN }}     # ONLY needed if the source repo is private
+      # 2. Download the release asset(s) from the other repository
+      - name: Download release asset(s)
+        env:
+          # The default GITHUB_TOKEN works for public repos.
+          # If the source repo was private, you would need a PAT
+          # stored as a secret (e.g., SOURCE_TOKEN) and pass it here.
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          # ─── CONFIGURE THESE THREE VARIABLES ──────────────────
+          SOURCE_REPO="jely2002/youtube-dl-gui"
+          SOURCE_TAG="v3.2.0"                     # ← check the exact tag name!
+          ASSETS="Open.Video.Downloader_3.2.0_x64-portable.zip"
+          # To download multiple files, separate with commas:
+          # ASSETS="file1.zip,file2.tar.gz"
+          # To download ALL assets from the release, use:
+          # ASSETS="*"
 
-      # 3. Commit and push the new file to your repository
+          # ─── Download logic ───────────────────────────────────
+          if [ "$ASSETS" = "*" ] || [ "$ASSETS" = "all" ]; then
+            echo "⬇️ Downloading ALL assets from ${SOURCE_REPO}@${SOURCE_TAG} ..."
+            gh release download "$SOURCE_TAG" \
+              --repo "$SOURCE_REPO" \
+              --pattern '*'
+          else
+            IFS=',' read -ra FILES <<< "$ASSETS"
+            for file in "${FILES[@]}"; do
+              file=$(echo "$file" | xargs)   # trim whitespace
+              echo "⬇️ Downloading: $file"
+              gh release download "$SOURCE_TAG" \
+                --repo "$SOURCE_REPO" \
+                --pattern "$file"
+            done
+          fi
+
+      # 3. Commit and push the new file(s) to your repository
       - name: Commit and push
         uses: stefanzweifel/git-auto-commit-action@v5
         with:
-          commit_message: 'Add release asset from from external repo'
-          branch: main   # or the branch you want to commit to
+          commit_message: 'Add release asset(s) from external repo'
+          branch: main
