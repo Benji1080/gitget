@@ -31,5 +31,5 @@ jobs:
       - name: Commit and push
         uses: stefanzweifel/git-auto-commit-action@v5
         with:
-          commit_message: 'Add release asset from localsend/localsend'
+          commit_message: 'Add release asset from from external repo'
           branch: main   # or the branch you want to commit to
