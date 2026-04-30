@@ -1,6 +1,6 @@
 ## ⚡ Mirror external github releases into your repo (and download):
 
-1. In your repository, create a new file at `.github/workflows/copy-release-asset.yml`.
+1. In your repository, create a new file at `.github/workflows/gitget.yml`.
 2. Paste the following YAML and replace the placeholders:
    - `SOURCE_OWNER/SOURCE_REPO` with the source repository (e.g., `torvalds/linux`).
    - `v1.2.3` with the release tag that holds the asset.
@@ -8,7 +8,7 @@
    - `assets/` with the folder where you want the file stored (can be `.` for root).
 
 ```yaml
-name: Copy Release Asset
+name: gitget
 
 on:
   workflow_dispatch:   # allows you to trigger the copy manually from the Actions tab
@@ -51,7 +51,7 @@ jobs:
 
 1. Go to your repository on GitHub.
 2. Click the **Actions** tab.
-3. Select the **Copy Release Asset** workflow on the left.
+3. Select the **gitget** workflow on the left.
 4. Click the **Run workflow** button and then **Run workflow**.
 
 The workflow will immediately download the asset from the source release and commit it to your repository. You’ll see the new file in your repo’s file tree once the run finishes.
