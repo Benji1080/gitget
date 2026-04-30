@@ -1,0 +1,35 @@
+name: Copy Release Asset
+
+on:
+  workflow_dispatch:   # allows you to trigger the copy manually from the Actions tab
+  # schedule:          # optional: uncomment to run on a schedule (cron)
+  #   - cron: '0 0 * * 0'
+
+# Ensure the workflow has write access to the repo
+permissions:
+  contents: write
+
+jobs:
+  copy:
+    runs-on: ubuntu-latest
+    steps:
+      # 1. Checkout your own repository so we can add the file
+      - name: Checkout my repo
+        uses: actions/checkout@v4
+
+      # 2. Download the release asset from the other repository
+      - name: Download release asset
+        uses: robinraju/release-downloader@v1.11
+        with:
+          repository: "localsend/localsend"   # the repo that has the release
+          tag: "v1.17.0"                            # the release tag
+          fileName: "LocalSend-1.17.0-linux-x86-64.deb"                  # the asset file name
+          out-file-path: "."                  # folder in your repo to store the file
+          # token: ${{ secrets.SOURCE_TOKEN }}     # ONLY needed if the source repo is private
+
+      # 3. Commit and push the new file to your repository
+      - name: Commit and push
+        uses: stefanzweifel/git-auto-commit-action@v5
+        with:
+          commit_message: 'Add release asset from localsend/localsend'
+          branch: main   # or the branch you want to commit to
