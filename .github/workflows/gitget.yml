@@ -1,10 +1,11 @@
 name: gitget
 
 on:
-  workflow_dispatch:
-  # schedule:
+  workflow_dispatch:   # allows you to trigger the copy manually from the Actions tab
+  # schedule:          # optional: uncomment to run on a schedule (cron)
   #   - cron: '0 0 * * 0'
 
+# Ensure the workflow has write access to the repo
 permissions:
   contents: write
 
@@ -12,47 +13,23 @@ jobs:
   copy:
     runs-on: ubuntu-latest
     steps:
+      # 1. Checkout your own repository so we can add the file
       - name: Checkout my repo
         uses: actions/checkout@v4
 
-      # ───── DIAGNOSTIC: Show available assets ─────
-      - name: List source release assets (for debugging)
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}   # not needed for public repos
-        run: |
-          echo "Checking release tag: v3.2.0"
-          gh release view v3.2.0 --repo jely2002/youtube-dl-gui --json assets --jq '.assets[].name' || echo "❌ Tag not found, or no assets. Check the exact tag name on: https://github.com/jely2002/youtube-dl-gui/releases"
+      # 2. Download the release asset from the other repository
+      - name: Download release asset
+        uses: robinraju/release-downloader@v1.11
+        with:
+          repository: "jely2002/youtube-dl-gui"   # the repo that has the release
+          tag: "app-v3.2.0"                            # the release tag
+          fileName: "Open.Video.Downloader_3.2.0_x64-portable.zip"                  # the asset file name, multiple files with comma separated, all files with *
+          out-file-path: "."                  # folder in your repo to store the file
+          # token: ${{ secrets.SOURCE_TOKEN }}     # ONLY needed if the source repo is private
 
-      # ───── DOWNLOAD ─────
-      - name: Download release asset(s)
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          SOURCE_REPO="jely2002/youtube-dl-gui"
-          SOURCE_TAG="v3.2.0"                     # ← CHANGE THIS IF THE TAG IS "3.2.0" (no v)
-          ASSETS="Open.Video.Downloader_3.2.0_x64-portable.zip"
-          # ASSETS="*"   # for all files
-
-          if [ "$ASSETS" = "*" ]; then
-            echo "⬇️ Downloading ALL assets..."
-            gh release download "$SOURCE_TAG" --repo "$SOURCE_REPO" --pattern '*'
-          else
-            IFS=',' read -ra FILES <<< "$ASSETS"
-            for file in "${FILES[@]}"; do
-              file=$(echo "$file" | xargs)   # trim whitespace
-              if [ -z "$file" ]; then continue; fi
-              echo "⬇️ Downloading: '$file'"
-              gh release download "$SOURCE_TAG" --repo "$SOURCE_REPO" --pattern "$file" || {
-                echo "❌ Failed to download '$file'. Check if the filename is correct (case‑sensitive)."
-                echo "Available assets (from previous step above) can help you verify the name."
-                exit 1
-              }
-            done
-          fi
-
-      # ───── COMMIT AND PUSH ─────
+      # 3. Commit and push the new file to your repository
       - name: Commit and push
         uses: stefanzweifel/git-auto-commit-action@v5
         with:
-          commit_message: 'Add release asset(s) from external repo'
-          branch: main
+          commit_message: 'Add release asset from external repo'
+          branch: main   # or the branch you want to commit to
