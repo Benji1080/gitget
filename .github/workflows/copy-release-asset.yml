@@ -23,7 +23,7 @@ jobs:
         with:
           repository: "localsend/localsend"   # the repo that has the release
           tag: "v1.17.0"                            # the release tag
-          fileName: "LocalSend-1.17.0-android-arm64v8.apk"                  # the asset file name
+          fileName: "LocalSend-1.17.0-android-arm64v8.apk"                  # the asset file name, can be multiple comma separated.
           out-file-path: "."                  # folder in your repo to store the file
           # token: ${{ secrets.SOURCE_TOKEN }}     # ONLY needed if the source repo is private
 
