@@ -21,9 +21,9 @@ jobs:
       - name: Download release asset
         uses: robinraju/release-downloader@v1.11
         with:
-          repository: "localsend/localsend"   # the repo that has the release
-          tag: "v1.17.0"                            # the release tag
-          fileName: "LocalSend-1.17.0-android-arm64v8.apk"                  # the asset file name, can be multiple comma separated.
+          repository: "2dust/v2rayN"   # the repo that has the release
+          tag: "v7.20.4"                            # the release tag
+          fileName: "v2rayN-windows-64-desktop.zip"                  # the asset file name, can be multiple comma separated.
           out-file-path: "."                  # folder in your repo to store the file
           # token: ${{ secrets.SOURCE_TOKEN }}     # ONLY needed if the source repo is private
 
