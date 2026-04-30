@@ -1,4 +1,4 @@
-## ⚡ Ready-to-use workflow file
+## ⚡ Download from github releases:
 
 1. In your repository, create a new file at `.github/workflows/copy-release-asset.yml`.
 2. Paste the following YAML and replace the placeholders:
