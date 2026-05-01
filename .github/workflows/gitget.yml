@@ -21,9 +21,9 @@ jobs:
       - name: Download release asset
         uses: robinraju/release-downloader@v1.11
         with:
-          repository: "jely2002/youtube-dl-gui"   # the repo that has the release
-          tag: "app-v3.2.0"                            # the release tag
-          fileName: "Open.Video.Downloader_3.2.0_x64-portable.zip"                  # the asset file name, multiple files with comma separated, all files with *
+          repository: "AscensionGameDev/Intersect-Engine"   # the repo that has the release
+          tag: "v0.8.0-beta.578"                            # the release tag
+          fileName: "v0.8.0-beta.578/intersect-win-x64-full-0.8.0-beta.578+build.32d39132dace1351f63375b261f241297dd35be8.zip"                  # the asset file name, multiple files with comma separated, all files with *
           out-file-path: "."                  # folder in your repo to store the file
           # token: ${{ secrets.SOURCE_TOKEN }}     # ONLY needed if the source repo is private
 
