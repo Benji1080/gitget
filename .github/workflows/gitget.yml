@@ -54,6 +54,7 @@ jobs:
           log "[INFO] Original filename determined by server: $FILENAME"
           cd - >/dev/null
 
+          # Clean previous leftovers for this exact filename
           rm -f "$DOWNLOAD_DIR/$FILENAME" "$DOWNLOAD_DIR/$FILENAME.split.zip" "$DOWNLOAD_DIR/$FILENAME.split.z"*
           mkdir -p "$DOWNLOAD_DIR"
           mv "$TMP_DIR/$FILENAME" "$DOWNLOAD_DIR/$FILENAME"
@@ -63,10 +64,8 @@ jobs:
           HUMAN_SIZE=$(numfmt --to=iec --suffix=B "$FILESIZE" 2>/dev/null || echo "$FILESIZE bytes")
           log "[INFO] Downloaded: $FILESIZE bytes ($HUMAN_SIZE)"
 
-          # -----------------------------------------------------------
           # Split if > 95 MiB (safe under GitHub's 100 MB limit)
-          # -----------------------------------------------------------
-          SAFE_MAX=$((95 * 1024 * 1024))       # 95 MiB (99,614,720 bytes)
+          SAFE_MAX=$((95 * 1024 * 1024))
           if [ "$FILESIZE" -gt "$SAFE_MAX" ]; then
             log "[INFO] File exceeds 95 MiB, splitting into 95 MiB multi‑part ZIP"
             cd "$DOWNLOAD_DIR"
@@ -79,7 +78,8 @@ jobs:
             cd ..
 
             PARTS_INFO=""
-            for part in "$DOWNLOAD_DIR/${FILENAME}.split.zip" "$DOWNLOAD_DIR/${FILENAME}.split.z"??; do
+            # Only iterate over .split.zip and then numbered parts (.z01, .z02, ...)
+            for part in "$DOWNLOAD_DIR/$FILENAME.split.zip" "$DOWNLOAD_DIR/$FILENAME".split.z[0-9]*; do
               [ -f "$part" ] || continue
               P_SIZE=$(stat -c %s "$part")
               P_HUMAN=$(numfmt --to=iec --suffix=B "$P_SIZE" 2>/dev/null || echo "$P_SIZE bytes")
