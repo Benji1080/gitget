@@ -1,6 +1,5 @@
-2026-05-01T16:00:53Z [INFO] Starting download
-2026-05-01T16:00:53Z [INFO] Input URL: https://github.com/rallep71/dinox/releases/download/v1.1.8.1/DinoX-Windows-1.1.8.1-x86_64.zip
-2026-05-01T16:00:55Z [INFO] Downloaded: 145320887 bytes (139MB)
-2026-05-01T16:00:55Z [INFO] File exceeds 95 MiB, splitting into 95 MiB multi‑part ZIP
-  adding: DinoX-Windows-1.1.8.1-x86_64.zip (stored 0%)
-2026-05-01T16:00:55Z [INFO] Done
+2026-05-01T16:35:48Z [INFO] Starting download
+2026-05-01T16:35:48Z [INFO] Input URL: https://github.com/tinode/chat/releases/download/v0.25.2/tinode-mysql.windows-amd64.zip
+2026-05-01T16:35:49Z [INFO] Downloaded: 32145176 bytes (31MB)
+2026-05-01T16:35:49Z [INFO] File within safe limit, keeping original
+2026-05-01T16:35:49Z [INFO] Done
