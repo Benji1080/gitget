@@ -1,56 +1,301 @@
 ## ⚡ کلون کردن فایل ها از رلیز یک رپو در رپوی شما و دانلود کردن آنها در شرایط فعلی که رلیزها کار نمیکنه
 
-مهم: این روش فقط برای فایل‌های زیر ۱۰۰ مگابایت کار میکنه!
-
 1. در ریپوی خودتون یه فایل در این آدرس ایجاد کنید: `.github/workflows/gitget.yml`.
-2. کد زیر رو توش پیست کنید و دقت کنید عبارات متغیر رو به نسبت کار خودتون باید تغییر بدید:
+2. فایل رو ویرایش کنید و کد زیر رو بذارید داخلش.
+3. فایل رو کامیت و ثبت کنید.
+4. بعد برید قسمت اکشن ها و این اکشن جدید رو اجرا کنید.
+5. نام رپوی مبدا که قراره ازش دانلود کنید بهمراه اسم فایل مورد نظر و تگ رو وارد فرم کنید.
+6. صبر کنید اکشن کارش تمام بشه.
 
-این: `SOURCE_OWNER/SOURCE_REPO` ریپوی سورس که قراره ازش کلون و دانلود کنید (مثلا: `ghostofyone/gitget`).
-
-این: `v1.2.3` رلیز تگ مورد نظر، دقت کنید دقیق وارد بشه. ممکنه مثلا 'app-v3.2.0' باشه!
-
-این: `my-file.zip` نام دقیق فایل یا فایل هایی که قرار کلون بشن.
-
-و این: `assets/` پوشه ای که قرار فایلها توش دانلود بشه (استفاده از `.` برای پوشه اصلی).
+نکته: اگر حجم فایل بیشتر از 100 مگابایت باشه بدلیل محدودیت گیتهاب اون رو به پارت های زیپ شده تقسیم میکنه که بعد از دانلود باید اکسترکت کنید.
 
 ```yaml
-name: gitget
+name: Mirror External Release to This Repo
 
 on:
-  workflow_dispatch:   # allows you to trigger the copy manually from the Actions tab
-  # schedule:          # optional: uncomment to run on a schedule (cron)
-  #   - cron: '0 0 * * 0'
+  workflow_dispatch:
+    inputs:
+      repo:
+        description: 'External repository (owner/name)'
+        required: true
+        default: 'octocat/Hello-World'
+      asset_name:
+        description: 'Exact filename of the release asset'
+        required: true
+      tag:
+        description: 'Release tag (leave empty for latest)'
+        required: false
 
-# Ensure the workflow has write access to the repo
 permissions:
   contents: write
 
 jobs:
-  copy:
+  mirror:
     runs-on: ubuntu-latest
     steps:
-      # 1. Checkout your own repository so we can add the file
-      - name: Checkout my repo
+      - name: Checkout this repository
         uses: actions/checkout@v4
-
-      # 2. Download the release asset from the other repository
-      - name: Download release asset
-        uses: robinraju/release-downloader@v1.11
         with:
-          repository: "SOURCE_OWNER/SOURCE_REPO"   # the repo that has the release
-          tag: "v1.2.3"                            # the release tag
-          fileName: "my-file.zip"                  # the asset file name, multiple files with comma separated, all files with *
-          out-file-path: "assets"                  # folder in your repo to store the file
-          # token: ${{ secrets.SOURCE_TOKEN }}     # ONLY needed if the source repo is private
+          persist-credentials: false
+          fetch-depth: 0
 
-      # 3. Commit and push the new file to your repository
-      - name: Commit and push
-        uses: stefanzweifel/git-auto-commit-action@v5
-        with:
-          commit_message: 'Add release asset from external repo'
-          branch: main   # or the branch you want to commit to
+      - name: Configure Git authentication
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git remote set-url origin "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git"
+
+      - name: Download external asset & metadata
+        id: download
+        run: |
+          set -e
+          TAG_INPUT="${{ github.event.inputs.tag }}"
+          if [ -z "$TAG_INPUT" ]; then
+            API_URL="https://api.github.com/repos/${{ github.event.inputs.repo }}/releases/latest"
+            TAG_DISPLAY="latest"
+          else
+            API_URL="https://api.github.com/repos/${{ github.event.inputs.repo }}/releases/tags/$TAG_INPUT"
+            TAG_DISPLAY="$TAG_INPUT"
+          fi
+
+          echo "::notice ::📡 Fetching release info for $TAG_DISPLAY"
+          RELEASE_JSON=$(curl -sS --fail --connect-timeout 30 --max-time 60 --retry 3 "$API_URL")
+          if echo "$RELEASE_JSON" | jq -e '.message' >/dev/null 2>&1; then
+            echo "::error ::GitHub API error: $(echo "$RELEASE_JSON" | jq -r '.message')"
+            exit 1
+          fi
+
+          ASSET_URL=$(echo "$RELEASE_JSON" | jq -r --arg NAME "${{ github.event.inputs.asset_name }}" \
+            '.assets[] | select(.name == $NAME) | .browser_download_url')
+          if [ -z "$ASSET_URL" ] || [ "$ASSET_URL" = "null" ]; then
+            echo "::error ::Asset '${{ github.event.inputs.asset_name }}' not found."
+            echo "Available assets:"
+            echo "$RELEASE_JSON" | jq -r '.assets[].name' | sed 's/^/  - /'
+            exit 1
+          fi
+
+          echo "⬇️ Downloading ${{ github.event.inputs.asset_name }} ..."
+          curl --progress-bar -L --fail --connect-timeout 30 --max-time 600 --retry 3 \
+               -o asset.file "$ASSET_URL"
+
+          if [ ! -f asset.file ] || [ ! -s asset.file ]; then
+            echo "::error ::Download failed."
+            exit 1
+          fi
+
+          FILE_SIZE=$(stat -c%s asset.file)
+          echo "size=$FILE_SIZE" >> $GITHUB_OUTPUT
+          echo "asset_name=${{ github.event.inputs.asset_name }}" >> $GITHUB_OUTPUT
+
+          # Save release body
+          echo "$RELEASE_JSON" | jq -r '.body // "No release notes provided."' > RELEASE_NOTES.md
+
+          # Try to fetch external README
+          AUTH_HEADER=""
+          if [ -n "$GH_PAT" ]; then
+            AUTH_HEADER="-H 'Authorization: token $GH_PAT'"
+          fi
+          README_URL="https://api.github.com/repos/${{ github.event.inputs.repo }}/readme"
+          README_JSON=$(curl -sS --fail --connect-timeout 15 --max-time 30 --retry 1 $AUTH_HEADER "$README_URL" 2>/dev/null || true)
+          if echo "$README_JSON" | jq -e '.content' >/dev/null 2>&1; then
+            echo "$README_JSON" | jq -r '.content' | base64 -d > EXTERNAL_README.md
+            echo "::notice ::External README saved."
+          else
+            echo "README not available for external repo." > EXTERNAL_README.md
+          fi
+        env:
+          GH_PAT: ${{ secrets.GH_PAT }}
+
+      - name: Prepare files and commit to branch
+        id: commit
+        env:
+          ASSET_NAME: ${{ github.event.inputs.asset_name }}
+          EXTERNAL_REPO: ${{ github.event.inputs.repo }}
+          TAG: ${{ github.event.inputs.tag || 'latest' }}
+        run: |
+          set -e
+          SAFE_REPO="${EXTERNAL_REPO//\//-}"
+          BRANCH_NAME="mirror-${SAFE_REPO}-${TAG}-${{ github.run_id }}"
+          echo "branch=$BRANCH_NAME" >> $GITHUB_OUTPUT
+
+          DEBUG_LOG="/tmp/commit-debug.log"
+          exec 3>&1 4>&2
+          exec 1>>"$DEBUG_LOG" 2>&1
+
+          echo "=== Debug: Commit step ==="
+          echo "ASSET_NAME: $ASSET_NAME"
+          echo "BRANCH_NAME: $BRANCH_NAME"
+          ls -la
+
+          SIZE=${{ steps.download.outputs.size }}
+          MAX_SINGLE=$((100 * 1024 * 1024))
+
+          # Clean up any leftover files from previous runs
+          rm -f "${ASSET_NAME}" "${ASSET_NAME}.zip" "${ASSET_NAME}.z"* "${ASSET_NAME}.sha256" README.md
+
+          # ---- README ----
+          echo "# Mirror of $ASSET_NAME" > README.md
+          echo "" >> README.md
+          echo "**Source:** [${EXTERNAL_REPO}](https://github.com/${EXTERNAL_REPO})" >> README.md
+          echo "**Release tag:** \`${TAG}\`" >> README.md
+          echo "**Asset:** \`${ASSET_NAME}\`" >> README.md
+          echo "" >> README.md
+
+          if [ "$SIZE" -le "$MAX_SINGLE" ]; then
+            cp asset.file "${ASSET_NAME}"
+            sha256sum "${ASSET_NAME}" | awk '{print $1}' > "${ASSET_NAME}.sha256"
+            echo "✅ The file is stored whole. A SHA256 checksum is provided in \`${ASSET_NAME}.sha256\`." >> README.md
+            rm -f asset.file
+          else
+            echo "::notice ::File > 100 MB, creating split ZIP (WinRAR/7‑Zip compatible)."
+            sudo apt-get install -y zip >/dev/null 2>&1
+            mv asset.file "${ASSET_NAME}"
+            sha256sum "${ASSET_NAME}" | awk '{print $1}' > "${ASSET_NAME}.sha256"
+            # Create split ZIP: file.zip, file.z01, file.z02 ...
+            zip -s 95m -r "${ASSET_NAME}.zip" "${ASSET_NAME}"
+            if [ $? -ne 0 ]; then
+              echo "::error ::zip command failed"
+              exec 1>&3 2>&4
+              echo "commit_error=zip split failed" >> $GITHUB_OUTPUT
+              exit 1
+            fi
+            rm -f "${ASSET_NAME}"
+            echo "### 🔧 How to extract" >> README.md
+            echo "" >> README.md
+            echo "1. Download the branch ZIP: [**Download**](https://codeload.github.com/${{ github.repository }}/zip/refs/heads/${BRANCH_NAME})" >> README.md
+            echo "2. Open \`${ASSET_NAME}.zip\` with **WinRAR**, **7‑Zip**, or **WinZip** (right‑click → Extract). The tool will combine all parts (\`.z01\`, \`.z02\`, …) automatically." >> README.md
+            echo "3. Verify the extracted file using the SHA256 checksum in \`${ASSET_NAME}.sha256\`." >> README.md
+          fi
+
+          echo "" >> README.md
+          echo "---" >> README.md
+          echo "## 📄 Release notes" >> README.md
+          echo "" >> README.md
+          cat RELEASE_NOTES.md >> README.md
+          echo "" >> README.md
+          echo "## 🧾 Original project README" >> README.md
+          echo "" >> README.md
+          echo "The original repository's README is available in [EXTERNAL_README.md](./EXTERNAL_README.md)." >> README.md
+          echo "" >> README.md
+          echo "---" >> README.md
+          echo "### 🗑️ Cleanup" >> README.md
+          echo "" >> README.md
+          echo "After downloading, delete this branch:" >> README.md
+          echo "\`\`\`bash" >> README.md
+          echo "git push origin --delete ${BRANCH_NAME}" >> README.md
+          echo "\`\`\`" >> README.md
+
+          # Create branch and commit
+          echo "Creating branch $BRANCH_NAME ..."
+          git checkout -b "$BRANCH_NAME" || {
+            echo "::error ::git checkout -b failed"
+            exec 1>&3 2>&4
+            echo "commit_error=git checkout failed" >> $GITHUB_OUTPUT
+            exit 1
+          }
+
+          echo "=== Files to be staged ==="
+          ls -la
+
+          STAGED_ANY=false
+          for f in README.md "${ASSET_NAME}" "${ASSET_NAME}.zip" "${ASSET_NAME}.z"* "${ASSET_NAME}.sha256" EXTERNAL_README.md RELEASE_NOTES.md .gitattributes; do
+            if [ -f "$f" ]; then
+              echo "Staging $f"
+              git add "$f"
+              STAGED_ANY=true
+            fi
+          done
+          git rm --cached asset.file 2>/dev/null || true
+
+          echo "=== Staged changes ==="
+          git diff --cached --name-status
+
+          if ! $STAGED_ANY; then
+            echo "::error ::Nothing was staged."
+            exec 1>&3 2>&4
+            echo "commit_error=nothing staged" >> $GITHUB_OUTPUT
+            exit 1
+          fi
+
+          git commit -m "Mirror: $ASSET_NAME from $EXTERNAL_REPO (tag: $TAG)" || {
+            echo "::error ::git commit failed"
+            exec 1>&3 2>&4
+            echo "commit_error=git commit failed" >> $GITHUB_OUTPUT
+            exit 1
+          }
+
+          git push origin "$BRANCH_NAME" || {
+            echo "::error ::git push failed"
+            exec 1>&3 2>&4
+            echo "commit_error=git push failed" >> $GITHUB_OUTPUT
+            exit 1
+          }
+
+          echo "::notice ::✅ Commit and push successful."
+          exec 1>&3 2>&4
+          echo "commit_success=true" >> $GITHUB_OUTPUT
+
+      - name: Print final summary
+        if: always()
+        env:
+          ASSET_NAME: ${{ github.event.inputs.asset_name }}
+          EXTERNAL_REPO: ${{ github.event.inputs.repo }}
+          TAG: ${{ github.event.inputs.tag || 'latest' }}
+        run: |
+          ASSET_NAME="$ASSET_NAME"
+          SIZE=${{ steps.download.outputs.size }}
+          MAX_SINGLE=$((100 * 1024 * 1024))
+          BRANCH="${{ steps.commit.outputs.branch }}"
+          [ -z "$BRANCH" ] && BRANCH="mirror-${EXTERNAL_REPO//\//-}-${TAG}-${{ github.run_id }}"
+          ZIP_URL="https://codeload.github.com/${{ github.repository }}/zip/refs/heads/${BRANCH}"
+
+          echo "### ✅ Mirror complete!" >> $GITHUB_STEP_SUMMARY
+          echo "**Source:** \`$EXTERNAL_REPO\` (tag: $TAG)" >> $GITHUB_STEP_SUMMARY
+          echo "**File:** \`$ASSET_NAME\`" >> $GITHUB_STEP_SUMMARY
+          echo "**Size:** $(du -h asset.file 2>/dev/null | cut -f1)" >> $GITHUB_STEP_SUMMARY
+
+          if [ "$SIZE" -le "$MAX_SINGLE" ]; then
+            echo "✅ The file is stored whole in branch **\`$BRANCH\`**." >> $GITHUB_STEP_SUMMARY
+            echo "📥 [Download branch ZIP (whole file)]($ZIP_URL)" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "⚠️ File > 100 MB – stored as a **split ZIP archive** (standard format)." >> $GITHUB_STEP_SUMMARY
+            echo "📥 [Download branch ZIP (contains all parts)]($ZIP_URL)" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "### 🔧 How to extract" >> $GITHUB_STEP_SUMMARY
+            echo "1. Download the branch ZIP above." >> $GITHUB_STEP_SUMMARY
+            echo "2. Open \`${ASSET_NAME}.zip\` with **WinRAR**, **7‑Zip**, or **WinZip** (right‑click → Extract)." >> $GITHUB_STEP_SUMMARY
+            echo "   The tool will combine all parts automatically." >> $GITHUB_STEP_SUMMARY
+            echo "3. (Optional) Verify with \`${ASSET_NAME}.sha256\`." >> $GITHUB_STEP_SUMMARY
+          fi
+
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### ℹ️ Metadata" >> $GITHUB_STEP_SUMMARY
+          echo "- **External README:** \`EXTERNAL_README.md\`" >> $GITHUB_STEP_SUMMARY
+          echo "- **Release notes:** embedded in \`README.md\`" >> $GITHUB_STEP_SUMMARY
+          echo "- **Instructions:** see \`README.md\` in the branch" >> $GITHUB_STEP_SUMMARY
+
+          COMMIT_ERROR="${{ steps.commit.outputs.commit_error }}"
+          COMMIT_OK="${{ steps.commit.outputs.commit_success }}"
+          if [ -z "$COMMIT_OK" ] && [ -n "$COMMIT_ERROR" ]; then
+            echo "⚠️ **Commit step failed:** $COMMIT_ERROR" >> $GITHUB_STEP_SUMMARY
+          elif [ -n "$COMMIT_OK" ]; then
+            echo "✅ Commit step succeeded." >> $GITHUB_STEP_SUMMARY
+          fi
+
+          if [ -n "$BRANCH" ] && [ -n "$COMMIT_OK" ]; then
+            echo "### 🗑️ Cleanup" >> $GITHUB_STEP_SUMMARY
+            echo "Delete the mirror branch after downloading:" >> $GITHUB_STEP_SUMMARY
+            echo '```bash' >> $GITHUB_STEP_SUMMARY
+            echo "git push origin --delete $BRANCH" >> $GITHUB_STEP_SUMMARY
+            echo '```' >> $GITHUB_STEP_SUMMARY
+          fi
+
+          DEBUG_LOG="/tmp/commit-debug.log"
+          if [ -f "$DEBUG_LOG" ]; then
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "### 🧾 Debug log" >> $GITHUB_STEP_SUMMARY
+            echo '```' >> $GITHUB_STEP_SUMMARY
+            cat "$DEBUG_LOG" >> $GITHUB_STEP_SUMMARY
+            echo '```' >> $GITHUB_STEP_SUMMARY
+          fi
 ```
-
-3. فایل رو کامیت و ثبت کنید.
-4. بعد برید قسمت اکشن ها و این اکشن جدید رو اجرا کنید و صبر کنید کارش رو بکنه.
-5. برگردید توی رپوی خودتون و فایل هاتون رو از اونجا براحتی دانلود کنید :)
