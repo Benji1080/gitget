@@ -1,6 +1,6 @@
-2026-05-01T15:37:39Z [INFO] Starting download
-2026-05-01T15:37:39Z [INFO] Input URL: https://github.com/2dust/v2rayN/releases/download/7.20.4/v2rayN-windows-64.zip
-2026-05-01T15:37:40Z [INFO] Downloaded: 150247451 bytes (144MB)
-2026-05-01T15:37:40Z [INFO] File exceeds 95 MiB, splitting into 95 MiB multi‑part ZIP
+2026-05-01T15:44:08Z [INFO] Starting download
+2026-05-01T15:44:08Z [INFO] Input URL: https://github.com/2dust/v2rayN/releases/download/7.20.4/v2rayN-windows-64.zip
+2026-05-01T15:44:08Z [INFO] Downloaded: 150247451 bytes (144MB)
+2026-05-01T15:44:08Z [INFO] File exceeds 95 MiB, splitting into 95 MiB multi‑part ZIP
   adding: v2rayN-windows-64.zip (stored 0%)
-2026-05-01T15:37:41Z [INFO] Done
+2026-05-01T15:44:09Z [INFO] Done
