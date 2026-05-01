@@ -1,5 +1,6 @@
-2026-05-01T16:35:48Z [INFO] Starting download
-2026-05-01T16:35:48Z [INFO] Input URL: https://github.com/tinode/chat/releases/download/v0.25.2/tinode-mysql.windows-amd64.zip
-2026-05-01T16:35:49Z [INFO] Downloaded: 32145176 bytes (31MB)
-2026-05-01T16:35:49Z [INFO] File within safe limit, keeping original
-2026-05-01T16:35:49Z [INFO] Done
+2026-05-01T17:05:58Z [INFO] Starting download
+2026-05-01T17:05:58Z [INFO] Input URL: https://github.com/4ian/GDevelop/releases/download/v5.6.266/GDevelop-5-Setup-5.6.266.exe
+2026-05-01T17:05:59Z [INFO] Downloaded: 150246488 bytes (144MB)
+2026-05-01T17:05:59Z [INFO] File exceeds 95 MiB, splitting into 95 MiB multi‑part ZIP
+  adding: GDevelop-5-Setup-5.6.266.exe (stored 0%)
+2026-05-01T17:05:59Z [INFO] Done
