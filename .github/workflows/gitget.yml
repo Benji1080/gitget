@@ -32,9 +32,6 @@ jobs:
           DOWNLOAD_DIR="downloads"
           TMP_DIR=$(mktemp -d)
 
-          # -----------------------------------------------------------
-          # 1. Clear log every run
-          # -----------------------------------------------------------
           > "$LOG_FILE"
 
           log() {
@@ -44,18 +41,9 @@ jobs:
           log "[INFO] Starting download"
           log "[INFO] Input URL: $INPUT_URL"
 
-          # -----------------------------------------------------------
-          # 2. Download using curl with -J (respect Content-Disposition)
-          #    and -O (use remote filename).  This is exactly what
-          #    download managers do.
-          # -----------------------------------------------------------
           cd "$TMP_DIR"
-
-          # curl writes the response body to the chosen filename,
-          # and prints only the effective filename to stdout.
           FILENAME=$(curl -L -J -O -w '%{filename_effective}' --progress-bar "$INPUT_URL" 2>curl_stderr.log)
           CURL_EXIT=$?
-          # Append curl stderr (progress & errors) to main log
           cat curl_stderr.log >> "../$LOG_FILE"
 
           if [ $CURL_EXIT -ne 0 ]; then
@@ -66,10 +54,7 @@ jobs:
           log "[INFO] Original filename determined by server: $FILENAME"
           cd - >/dev/null
 
-          # Remove any previous file or split parts with the same name
           rm -f "$DOWNLOAD_DIR/$FILENAME" "$DOWNLOAD_DIR/$FILENAME.split.zip" "$DOWNLOAD_DIR/$FILENAME.split.z"*
-
-          # Move the downloaded file into the downloads/ folder
           mkdir -p "$DOWNLOAD_DIR"
           mv "$TMP_DIR/$FILENAME" "$DOWNLOAD_DIR/$FILENAME"
 
@@ -79,21 +64,20 @@ jobs:
           log "[INFO] Downloaded: $FILESIZE bytes ($HUMAN_SIZE)"
 
           # -----------------------------------------------------------
-          # 3. Split if > 100 MB (standard multi‑part ZIP, 100 MB parts)
+          # Split if > 95 MiB (safe under GitHub's 100 MB limit)
           # -----------------------------------------------------------
-          MAX_SIZE=$((100 * 1024 * 1024))
-          if [ "$FILESIZE" -gt "$MAX_SIZE" ]; then
-            log "[INFO] File exceeds 100 MB, splitting into a multi‑part ZIP archive"
+          SAFE_MAX=$((95 * 1024 * 1024))       # 95 MiB (99,614,720 bytes)
+          if [ "$FILESIZE" -gt "$SAFE_MAX" ]; then
+            log "[INFO] File exceeds 95 MiB, splitting into 95 MiB multi‑part ZIP"
             cd "$DOWNLOAD_DIR"
-            zip -0 -s 100m -r "${FILENAME}.split.zip" "$FILENAME" 2>&1 | tee -a "../$LOG_FILE"
+            zip -0 -s 95m -r "${FILENAME}.split.zip" "$FILENAME" 2>&1 | tee -a "../$LOG_FILE"
             if [ ${PIPESTATUS[0]} -ne 0 ]; then
               log "[ERROR] ZIP split failed"
               exit 1
             fi
-            rm -f "$FILENAME"   # delete original large file
+            rm -f "$FILENAME"
             cd ..
 
-            # Gather part names and sizes for the summary
             PARTS_INFO=""
             for part in "$DOWNLOAD_DIR/${FILENAME}.split.zip" "$DOWNLOAD_DIR/${FILENAME}.split.z"??; do
               [ -f "$part" ] || continue
@@ -109,7 +93,7 @@ jobs:
             echo -e "$PARTS_INFO" >> "$GITHUB_OUTPUT"
             echo "EOF" >> "$GITHUB_OUTPUT"
           else
-            log "[INFO] File within 100 MB limit, keeping original"
+            log "[INFO] File within safe limit, keeping original"
             echo "split=false" >> "$GITHUB_OUTPUT"
             echo "filename=$FILENAME" >> "$GITHUB_OUTPUT"
             echo "filepath=$FILEPATH" >> "$GITHUB_OUTPUT"
