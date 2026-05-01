@@ -4,27 +4,21 @@
 2. فایل رو ویرایش کنید و کد زیر رو بذارید داخلش.
 3. فایل رو کامیت و ثبت کنید.
 4. بعد برید قسمت اکشن ها و این اکشن جدید رو اجرا کنید.
-5. نام رپوی مبدا که قراره ازش دانلود کنید بهمراه اسم فایل مورد نظر و تگ رو وارد فرم کنید.
+5. لینک مستقیم فایلی که قراره دانلود کنید رو وارد کنید، چه از گیتهاب یا هرجا در اینترنت!
 6. صبر کنید اکشن کارش تمام بشه.
 
 نکته: اگر حجم فایل بیشتر از 100 مگابایت باشه بدلیل محدودیت گیتهاب اون رو به پارت های زیپ شده تقسیم میکنه که بعد از دانلود باید اکسترکت کنید.
 
 ```yaml
-name: Mirror External Release to This Repo
+name: Mirror File Download
 
 on:
   workflow_dispatch:
     inputs:
-      repo:
-        description: 'External repository (owner/name)'
+      url:
+        description: 'Direct download URL of the file'
         required: true
-        default: 'octocat/Hello-World'
-      asset_name:
-        description: 'Exact filename of the release asset'
-        required: true
-      tag:
-        description: 'Release tag (leave empty for latest)'
-        required: false
+        type: string
 
 permissions:
   contents: write
@@ -33,269 +27,159 @@ jobs:
   mirror:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout this repository
+      - name: Checkout repository
         uses: actions/checkout@v4
         with:
-          persist-credentials: false
-          fetch-depth: 0
+          persist-credentials: true
 
-      - name: Configure Git authentication
+      - name: Download and process file
+        id: download
+        env:
+          INPUT_URL: ${{ github.event.inputs.url }}
+        run: |
+          #!/bin/bash
+          set -euo pipefail
+
+          LOG_FILE="download_log.txt"
+          DOWNLOAD_DIR="downloads"
+          TMP_DIR=$(mktemp -d)
+
+          # -----------------------------------------------------------
+          # 1. Clear log every run
+          # -----------------------------------------------------------
+          > "$LOG_FILE"
+
+          log() {
+            echo "$(date -u +'%Y-%m-%dT%H:%M:%SZ') $1" | tee -a "$LOG_FILE"
+          }
+
+          log "[INFO] Starting download"
+          log "[INFO] Input URL: $INPUT_URL"
+
+          # -----------------------------------------------------------
+          # 2. Download using curl with -J (respect Content-Disposition)
+          #    and -O (use remote filename).  This is exactly what
+          #    download managers do.
+          # -----------------------------------------------------------
+          cd "$TMP_DIR"
+
+          # curl writes the response body to the chosen filename,
+          # and prints only the effective filename to stdout.
+          FILENAME=$(curl -L -J -O -w '%{filename_effective}' --progress-bar "$INPUT_URL" 2>curl_stderr.log)
+          CURL_EXIT=$?
+          # Append curl stderr (progress & errors) to main log
+          cat curl_stderr.log >> "../$LOG_FILE"
+
+          if [ $CURL_EXIT -ne 0 ]; then
+            log "[ERROR] curl failed (exit code: $CURL_EXIT)"
+            exit 1
+          fi
+
+          log "[INFO] Original filename determined by server: $FILENAME"
+          cd - >/dev/null
+
+          # Remove any previous file or split parts with the same name
+          rm -f "$DOWNLOAD_DIR/$FILENAME" "$DOWNLOAD_DIR/$FILENAME.split.zip" "$DOWNLOAD_DIR/$FILENAME.split.z"*
+
+          # Move the downloaded file into the downloads/ folder
+          mkdir -p "$DOWNLOAD_DIR"
+          mv "$TMP_DIR/$FILENAME" "$DOWNLOAD_DIR/$FILENAME"
+
+          FILEPATH="$DOWNLOAD_DIR/$FILENAME"
+          FILESIZE=$(stat -c %s "$FILEPATH")
+          HUMAN_SIZE=$(numfmt --to=iec --suffix=B "$FILESIZE" 2>/dev/null || echo "$FILESIZE bytes")
+          log "[INFO] Downloaded: $FILESIZE bytes ($HUMAN_SIZE)"
+
+          # -----------------------------------------------------------
+          # 3. Split if > 100 MB (standard multi‑part ZIP, 100 MB parts)
+          # -----------------------------------------------------------
+          MAX_SIZE=$((100 * 1024 * 1024))
+          if [ "$FILESIZE" -gt "$MAX_SIZE" ]; then
+            log "[INFO] File exceeds 100 MB, splitting into a multi‑part ZIP archive"
+            cd "$DOWNLOAD_DIR"
+            zip -0 -s 100m -r "${FILENAME}.split.zip" "$FILENAME" 2>&1 | tee -a "../$LOG_FILE"
+            if [ ${PIPESTATUS[0]} -ne 0 ]; then
+              log "[ERROR] ZIP split failed"
+              exit 1
+            fi
+            rm -f "$FILENAME"   # delete original large file
+            cd ..
+
+            # Gather part names and sizes for the summary
+            PARTS_INFO=""
+            for part in "$DOWNLOAD_DIR/${FILENAME}.split.zip" "$DOWNLOAD_DIR/${FILENAME}.split.z"??; do
+              [ -f "$part" ] || continue
+              P_SIZE=$(stat -c %s "$part")
+              P_HUMAN=$(numfmt --to=iec --suffix=B "$P_SIZE" 2>/dev/null || echo "$P_SIZE bytes")
+              PARTS_INFO+="$(basename "$part")|${P_SIZE}|${P_HUMAN}\n"
+            done
+
+            echo "split=true" >> "$GITHUB_OUTPUT"
+            echo "filename=$FILENAME" >> "$GITHUB_OUTPUT"
+            echo "archive_basename=${FILENAME}.split" >> "$GITHUB_OUTPUT"
+            echo "parts_list<<EOF" >> "$GITHUB_OUTPUT"
+            echo -e "$PARTS_INFO" >> "$GITHUB_OUTPUT"
+            echo "EOF" >> "$GITHUB_OUTPUT"
+          else
+            log "[INFO] File within 100 MB limit, keeping original"
+            echo "split=false" >> "$GITHUB_OUTPUT"
+            echo "filename=$FILENAME" >> "$GITHUB_OUTPUT"
+            echo "filepath=$FILEPATH" >> "$GITHUB_OUTPUT"
+          fi
+
+          echo "filesize=$FILESIZE" >> "$GITHUB_OUTPUT"
+          echo "human_size=$HUMAN_SIZE" >> "$GITHUB_OUTPUT"
+          log "[INFO] Done"
+
+      - name: Commit log and files to the repository
+        if: always()
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git remote set-url origin "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git"
-
-      - name: Download external asset & metadata
-        id: download
-        run: |
-          set -e
-          TAG_INPUT="${{ github.event.inputs.tag }}"
-          if [ -z "$TAG_INPUT" ]; then
-            API_URL="https://api.github.com/repos/${{ github.event.inputs.repo }}/releases/latest"
-            TAG_DISPLAY="latest"
-          else
-            API_URL="https://api.github.com/repos/${{ github.event.inputs.repo }}/releases/tags/$TAG_INPUT"
-            TAG_DISPLAY="$TAG_INPUT"
+          git add download_log.txt
+          if [ -d downloads ]; then
+            git add downloads/
           fi
+          git diff --cached --quiet || git commit -m "Mirror download: ${{ github.event.inputs.url }}"
+          git push
 
-          echo "::notice ::📡 Fetching release info for $TAG_DISPLAY"
-          RELEASE_JSON=$(curl -sS --fail --connect-timeout 30 --max-time 60 --retry 3 "$API_URL")
-          if echo "$RELEASE_JSON" | jq -e '.message' >/dev/null 2>&1; then
-            echo "::error ::GitHub API error: $(echo "$RELEASE_JSON" | jq -r '.message')"
-            exit 1
-          fi
-
-          ASSET_URL=$(echo "$RELEASE_JSON" | jq -r --arg NAME "${{ github.event.inputs.asset_name }}" \
-            '.assets[] | select(.name == $NAME) | .browser_download_url')
-          if [ -z "$ASSET_URL" ] || [ "$ASSET_URL" = "null" ]; then
-            echo "::error ::Asset '${{ github.event.inputs.asset_name }}' not found."
-            echo "Available assets:"
-            echo "$RELEASE_JSON" | jq -r '.assets[].name' | sed 's/^/  - /'
-            exit 1
-          fi
-
-          echo "⬇️ Downloading ${{ github.event.inputs.asset_name }} ..."
-          curl --progress-bar -L --fail --connect-timeout 30 --max-time 600 --retry 3 \
-               -o asset.file "$ASSET_URL"
-
-          if [ ! -f asset.file ] || [ ! -s asset.file ]; then
-            echo "::error ::Download failed."
-            exit 1
-          fi
-
-          FILE_SIZE=$(stat -c%s asset.file)
-          echo "size=$FILE_SIZE" >> $GITHUB_OUTPUT
-          echo "asset_name=${{ github.event.inputs.asset_name }}" >> $GITHUB_OUTPUT
-
-          # Save release body
-          echo "$RELEASE_JSON" | jq -r '.body // "No release notes provided."' > RELEASE_NOTES.md
-
-          # Try to fetch external README
-          AUTH_HEADER=""
-          if [ -n "$GH_PAT" ]; then
-            AUTH_HEADER="-H 'Authorization: token $GH_PAT'"
-          fi
-          README_URL="https://api.github.com/repos/${{ github.event.inputs.repo }}/readme"
-          README_JSON=$(curl -sS --fail --connect-timeout 15 --max-time 30 --retry 1 $AUTH_HEADER "$README_URL" 2>/dev/null || true)
-          if echo "$README_JSON" | jq -e '.content' >/dev/null 2>&1; then
-            echo "$README_JSON" | jq -r '.content' | base64 -d > EXTERNAL_README.md
-            echo "::notice ::External README saved."
-          else
-            echo "README not available for external repo." > EXTERNAL_README.md
-          fi
-        env:
-          GH_PAT: ${{ secrets.GH_PAT }}
-
-      - name: Prepare files and commit to branch
-        id: commit
-        env:
-          ASSET_NAME: ${{ github.event.inputs.asset_name }}
-          EXTERNAL_REPO: ${{ github.event.inputs.repo }}
-          TAG: ${{ github.event.inputs.tag || 'latest' }}
-        run: |
-          set -e
-          SAFE_REPO="${EXTERNAL_REPO//\//-}"
-          BRANCH_NAME="mirror-${SAFE_REPO}-${TAG}-${{ github.run_id }}"
-          echo "branch=$BRANCH_NAME" >> $GITHUB_OUTPUT
-
-          DEBUG_LOG="/tmp/commit-debug.log"
-          exec 3>&1 4>&2
-          exec 1>>"$DEBUG_LOG" 2>&1
-
-          echo "=== Debug: Commit step ==="
-          echo "ASSET_NAME: $ASSET_NAME"
-          echo "BRANCH_NAME: $BRANCH_NAME"
-          ls -la
-
-          SIZE=${{ steps.download.outputs.size }}
-          MAX_SINGLE=$((100 * 1024 * 1024))
-
-          # Clean up any leftover files from previous runs
-          rm -f "${ASSET_NAME}" "${ASSET_NAME}.zip" "${ASSET_NAME}.z"* "${ASSET_NAME}.sha256" README.md
-
-          # ---- README ----
-          echo "# Mirror of $ASSET_NAME" > README.md
-          echo "" >> README.md
-          echo "**Source:** [${EXTERNAL_REPO}](https://github.com/${EXTERNAL_REPO})" >> README.md
-          echo "**Release tag:** \`${TAG}\`" >> README.md
-          echo "**Asset:** \`${ASSET_NAME}\`" >> README.md
-          echo "" >> README.md
-
-          if [ "$SIZE" -le "$MAX_SINGLE" ]; then
-            cp asset.file "${ASSET_NAME}"
-            sha256sum "${ASSET_NAME}" | awk '{print $1}' > "${ASSET_NAME}.sha256"
-            echo "✅ The file is stored whole. A SHA256 checksum is provided in \`${ASSET_NAME}.sha256\`." >> README.md
-            rm -f asset.file
-          else
-            echo "::notice ::File > 100 MB, creating split ZIP (WinRAR/7‑Zip compatible)."
-            sudo apt-get install -y zip >/dev/null 2>&1
-            mv asset.file "${ASSET_NAME}"
-            sha256sum "${ASSET_NAME}" | awk '{print $1}' > "${ASSET_NAME}.sha256"
-            # Create split ZIP: file.zip, file.z01, file.z02 ...
-            zip -s 95m -r "${ASSET_NAME}.zip" "${ASSET_NAME}"
-            if [ $? -ne 0 ]; then
-              echo "::error ::zip command failed"
-              exec 1>&3 2>&4
-              echo "commit_error=zip split failed" >> $GITHUB_OUTPUT
-              exit 1
-            fi
-            rm -f "${ASSET_NAME}"
-            echo "### 🔧 How to extract" >> README.md
-            echo "" >> README.md
-            echo "1. Download the branch ZIP: [**Download**](https://codeload.github.com/${{ github.repository }}/zip/refs/heads/${BRANCH_NAME})" >> README.md
-            echo "2. Open \`${ASSET_NAME}.zip\` with **WinRAR**, **7‑Zip**, or **WinZip** (right‑click → Extract). The tool will combine all parts (\`.z01\`, \`.z02\`, …) automatically." >> README.md
-            echo "3. Verify the extracted file using the SHA256 checksum in \`${ASSET_NAME}.sha256\`." >> README.md
-          fi
-
-          echo "" >> README.md
-          echo "---" >> README.md
-          echo "## 📄 Release notes" >> README.md
-          echo "" >> README.md
-          cat RELEASE_NOTES.md >> README.md
-          echo "" >> README.md
-          echo "## 🧾 Original project README" >> README.md
-          echo "" >> README.md
-          echo "The original repository's README is available in [EXTERNAL_README.md](./EXTERNAL_README.md)." >> README.md
-          echo "" >> README.md
-          echo "---" >> README.md
-          echo "### 🗑️ Cleanup" >> README.md
-          echo "" >> README.md
-          echo "After downloading, delete this branch:" >> README.md
-          echo "\`\`\`bash" >> README.md
-          echo "git push origin --delete ${BRANCH_NAME}" >> README.md
-          echo "\`\`\`" >> README.md
-
-          # Create branch and commit
-          echo "Creating branch $BRANCH_NAME ..."
-          git checkout -b "$BRANCH_NAME" || {
-            echo "::error ::git checkout -b failed"
-            exec 1>&3 2>&4
-            echo "commit_error=git checkout failed" >> $GITHUB_OUTPUT
-            exit 1
-          }
-
-          echo "=== Files to be staged ==="
-          ls -la
-
-          STAGED_ANY=false
-          for f in README.md "${ASSET_NAME}" "${ASSET_NAME}.zip" "${ASSET_NAME}.z"* "${ASSET_NAME}.sha256" EXTERNAL_README.md RELEASE_NOTES.md .gitattributes; do
-            if [ -f "$f" ]; then
-              echo "Staging $f"
-              git add "$f"
-              STAGED_ANY=true
-            fi
-          done
-          git rm --cached asset.file 2>/dev/null || true
-
-          echo "=== Staged changes ==="
-          git diff --cached --name-status
-
-          if ! $STAGED_ANY; then
-            echo "::error ::Nothing was staged."
-            exec 1>&3 2>&4
-            echo "commit_error=nothing staged" >> $GITHUB_OUTPUT
-            exit 1
-          fi
-
-          git commit -m "Mirror: $ASSET_NAME from $EXTERNAL_REPO (tag: $TAG)" || {
-            echo "::error ::git commit failed"
-            exec 1>&3 2>&4
-            echo "commit_error=git commit failed" >> $GITHUB_OUTPUT
-            exit 1
-          }
-
-          git push origin "$BRANCH_NAME" || {
-            echo "::error ::git push failed"
-            exec 1>&3 2>&4
-            echo "commit_error=git push failed" >> $GITHUB_OUTPUT
-            exit 1
-          }
-
-          echo "::notice ::✅ Commit and push successful."
-          exec 1>&3 2>&4
-          echo "commit_success=true" >> $GITHUB_OUTPUT
-
-      - name: Print final summary
+      - name: Create job summary
         if: always()
         env:
-          ASSET_NAME: ${{ github.event.inputs.asset_name }}
-          EXTERNAL_REPO: ${{ github.event.inputs.repo }}
-          TAG: ${{ github.event.inputs.tag || 'latest' }}
+          REPO: ${{ github.repository }}
+          BRANCH: ${{ github.ref_name }}
+          SPLIT: ${{ steps.download.outputs.split }}
+          FILENAME: ${{ steps.download.outputs.filename }}
+          FILEPATH: ${{ steps.download.outputs.filepath }}
+          ARCHIVE_BASENAME: ${{ steps.download.outputs.archive_basename }}
+          FILESIZE: ${{ steps.download.outputs.filesize }}
+          HUMAN_SIZE: ${{ steps.download.outputs.human_size }}
+          PARTS_LIST: ${{ steps.download.outputs.parts_list }}
         run: |
-          ASSET_NAME="$ASSET_NAME"
-          SIZE=${{ steps.download.outputs.size }}
-          MAX_SINGLE=$((100 * 1024 * 1024))
-          BRANCH="${{ steps.commit.outputs.branch }}"
-          [ -z "$BRANCH" ] && BRANCH="mirror-${EXTERNAL_REPO//\//-}-${TAG}-${{ github.run_id }}"
-          ZIP_URL="https://codeload.github.com/${{ github.repository }}/zip/refs/heads/${BRANCH}"
-
-          echo "### ✅ Mirror complete!" >> $GITHUB_STEP_SUMMARY
-          echo "**Source:** \`$EXTERNAL_REPO\` (tag: $TAG)" >> $GITHUB_STEP_SUMMARY
-          echo "**File:** \`$ASSET_NAME\`" >> $GITHUB_STEP_SUMMARY
-          echo "**Size:** $(du -h asset.file 2>/dev/null | cut -f1)" >> $GITHUB_STEP_SUMMARY
-
-          if [ "$SIZE" -le "$MAX_SINGLE" ]; then
-            echo "✅ The file is stored whole in branch **\`$BRANCH\`**." >> $GITHUB_STEP_SUMMARY
-            echo "📥 [Download branch ZIP (whole file)]($ZIP_URL)" >> $GITHUB_STEP_SUMMARY
-          else
-            echo "⚠️ File > 100 MB – stored as a **split ZIP archive** (standard format)." >> $GITHUB_STEP_SUMMARY
-            echo "📥 [Download branch ZIP (contains all parts)]($ZIP_URL)" >> $GITHUB_STEP_SUMMARY
-            echo "" >> $GITHUB_STEP_SUMMARY
-            echo "### 🔧 How to extract" >> $GITHUB_STEP_SUMMARY
-            echo "1. Download the branch ZIP above." >> $GITHUB_STEP_SUMMARY
-            echo "2. Open \`${ASSET_NAME}.zip\` with **WinRAR**, **7‑Zip**, or **WinZip** (right‑click → Extract)." >> $GITHUB_STEP_SUMMARY
-            echo "   The tool will combine all parts automatically." >> $GITHUB_STEP_SUMMARY
-            echo "3. (Optional) Verify with \`${ASSET_NAME}.sha256\`." >> $GITHUB_STEP_SUMMARY
-          fi
-
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "### ℹ️ Metadata" >> $GITHUB_STEP_SUMMARY
-          echo "- **External README:** \`EXTERNAL_README.md\`" >> $GITHUB_STEP_SUMMARY
-          echo "- **Release notes:** embedded in \`README.md\`" >> $GITHUB_STEP_SUMMARY
-          echo "- **Instructions:** see \`README.md\` in the branch" >> $GITHUB_STEP_SUMMARY
-
-          COMMIT_ERROR="${{ steps.commit.outputs.commit_error }}"
-          COMMIT_OK="${{ steps.commit.outputs.commit_success }}"
-          if [ -z "$COMMIT_OK" ] && [ -n "$COMMIT_ERROR" ]; then
-            echo "⚠️ **Commit step failed:** $COMMIT_ERROR" >> $GITHUB_STEP_SUMMARY
-          elif [ -n "$COMMIT_OK" ]; then
-            echo "✅ Commit step succeeded." >> $GITHUB_STEP_SUMMARY
-          fi
-
-          if [ -n "$BRANCH" ] && [ -n "$COMMIT_OK" ]; then
-            echo "### 🗑️ Cleanup" >> $GITHUB_STEP_SUMMARY
-            echo "Delete the mirror branch after downloading:" >> $GITHUB_STEP_SUMMARY
-            echo '```bash' >> $GITHUB_STEP_SUMMARY
-            echo "git push origin --delete $BRANCH" >> $GITHUB_STEP_SUMMARY
-            echo '```' >> $GITHUB_STEP_SUMMARY
-          fi
-
-          DEBUG_LOG="/tmp/commit-debug.log"
-          if [ -f "$DEBUG_LOG" ]; then
-            echo "" >> $GITHUB_STEP_SUMMARY
-            echo "### 🧾 Debug log" >> $GITHUB_STEP_SUMMARY
-            echo '```' >> $GITHUB_STEP_SUMMARY
-            cat "$DEBUG_LOG" >> $GITHUB_STEP_SUMMARY
-            echo '```' >> $GITHUB_STEP_SUMMARY
-          fi
+          LOG_TEXT=$(cat download_log.txt 2>/dev/null || echo "No log file found")
+          {
+            echo "## Download Summary"
+            echo ""
+            if [ "$SPLIT" = "true" ]; then
+              echo "**Split archive parts** (download all parts, then open the \`.zip\` file):"
+              echo ""
+              while IFS='|' read -r partname bytes human; do
+                [ -z "$partname" ] && continue
+                echo "- [\`$partname\` ($human)](https://raw.githubusercontent.com/${REPO}/${BRANCH}/downloads/$partname)"
+              done <<< "$(echo -e "$PARTS_LIST")"
+              echo ""
+              echo "**Total original size:** \`$HUMAN_SIZE\`"
+              echo ""
+              echo "> **Reassembly:** Open \`${FILENAME}.split.zip\` with 7‑Zip, WinRAR, or WinZip. The \`.z01\`, \`.z02\` parts are read automatically."
+            elif [ -n "$FILEPATH" ]; then
+              echo "**Downloaded file:** [\`$FILENAME\` (${HUMAN_SIZE})](https://raw.githubusercontent.com/${REPO}/${BRANCH}/$FILEPATH)"
+            else
+              echo "❌ Download did **not** produce a usable file. Check the log below."
+            fi
+            echo ""
+            echo "### Detailed Log"
+            echo '```'
+            echo "$LOG_TEXT"
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
 ```
