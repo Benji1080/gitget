@@ -1,0 +1,5 @@
+2026-05-01T15:29:19Z [INFO] Starting download
+2026-05-01T15:29:19Z [INFO] Input URL: https://release-assets.githubusercontent.com/github-production-release-asset/18511687/f23806e0-74c2-41e7-a84b-2d89116c16ea?sp=r&sv=2018-11-09&sr=b&spr=https&se=2026-05-01T16%3A26%3A09Z&rscd=attachment%3B+filename%3Dopenfire_5_0_4.zip&rsct=application%2Foctet-stream&skoid=96c2d410-5711-43a1-aedd-ab1947aa7ab0&sktid=398a6654-997b-47e9-b12b-9515b896b4de&skt=2026-05-01T15%3A25%3A41Z&ske=2026-05-01T16%3A26%3A09Z&sks=b&skv=2018-11-09&sig=HFCMO7MlX4TJDNzc1NGzOmuwtGtPk22K6ua9AEKZdt0%3D&jwt=eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJpc3MiOiJnaXRodWIuY29tIiwiYXVkIjoicmVsZWFzZS1hc3NldHMuZ2l0aHVidXNlcmNvbnRlbnQuY29tIiwia2V5Ijoia2V5MSIsImV4cCI6MTc3NzY1MTEyOCwibmJmIjoxNzc3NjQ5MzI4LCJwYXRoIjoicmVsZWFzZWFzc2V0cHJvZHVjdGlvbi5ibG9iLmNvcmUud2luZG93cy5uZXQifQ.TvKzmyQ0xTwBwZ0f-6L9mcbc_h8Uk8geIFWEtBJ1HGo&response-content-disposition=attachment%3B%20filename%3Dopenfire_5_0_4.zip&response-content-type=application%2Foctet-stream
+2026-05-01T15:29:21Z [INFO] Downloaded: 67650289 bytes (65MB)
+2026-05-01T15:29:21Z [INFO] File within 100 MB limit, keeping original
+2026-05-01T15:29:21Z [INFO] Done
