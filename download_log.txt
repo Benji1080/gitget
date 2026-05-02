@@ -1,5 +1,0 @@
-2026-05-01T17:47:14Z [INFO] Starting download
-2026-05-01T17:47:14Z [INFO] Input URL: https://github.com/shchuchkin-pkims/fear-mobile/releases/download/v0.4.3/F.E.A.R.-v0.4.3-release.apk
-2026-05-01T17:47:14Z [INFO] Downloaded: 11092372 bytes (11MB)
-2026-05-01T17:47:14Z [INFO] File within safe limit, keeping original
-2026-05-01T17:47:14Z [INFO] Done
