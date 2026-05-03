@@ -1,0 +1,5 @@
+2026-05-03T08:52:34Z [INFO] Starting download
+2026-05-03T08:52:34Z [INFO] Input URL: https://github.com/RooCodeInc/Roo-Code/releases/download/v3.37.1/roo-cline-3.37.1.vsix
+2026-05-03T08:52:36Z [INFO] Downloaded: 34712793 bytes (34MB)
+2026-05-03T08:52:36Z [INFO] File within safe limit, keeping original
+2026-05-03T08:52:36Z [INFO] Done
