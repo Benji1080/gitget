@@ -1,5 +1,5 @@
-2026-05-04T11:21:37Z [INFO] Starting download
-2026-05-04T11:21:37Z [INFO] Input URL: https://repo1.maven.org/maven2/com/google/zxing/core/3.5.3/core-3.5.3.jar
-2026-05-04T11:21:37Z [INFO] Downloaded: 607650 bytes (594KB)
-2026-05-04T11:21:37Z [INFO] File within safe limit, keeping original
-2026-05-04T11:21:37Z [INFO] Done
+2026-05-04T15:58:35Z [INFO] Starting download
+2026-05-04T15:58:35Z [INFO] Input URL: https://github.com/therealaleph/MasterHttpRelayVPN-RUST/releases/download/v1.9.9/mhrv-rs-windows-amd64.zip
+2026-05-04T15:58:35Z [INFO] Downloaded: 7306908 bytes (7.0MB)
+2026-05-04T15:58:35Z [INFO] File within safe limit, keeping original
+2026-05-04T15:58:35Z [INFO] Done
