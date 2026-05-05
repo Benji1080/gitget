@@ -1,5 +1,5 @@
-2026-05-04T15:58:35Z [INFO] Starting download
-2026-05-04T15:58:35Z [INFO] Input URL: https://github.com/therealaleph/MasterHttpRelayVPN-RUST/releases/download/v1.9.9/mhrv-rs-windows-amd64.zip
-2026-05-04T15:58:35Z [INFO] Downloaded: 7306908 bytes (7.0MB)
-2026-05-04T15:58:35Z [INFO] File within safe limit, keeping original
-2026-05-04T15:58:35Z [INFO] Done
+2026-05-05T22:52:53Z [INFO] Starting download
+2026-05-05T22:52:53Z [INFO] Input URL: https://download.igniterealtime.org/openfire/dailybuilds/openfire_x64_2026-05-05.exe
+2026-05-05T22:52:58Z [INFO] Downloaded: 82024448 bytes (79MB)
+2026-05-05T22:52:58Z [INFO] File within safe limit, keeping original
+2026-05-05T22:52:58Z [INFO] Done
