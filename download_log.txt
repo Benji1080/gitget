@@ -1,5 +1,5 @@
-2026-05-06T08:25:06Z [INFO] Starting download
-2026-05-06T08:25:06Z [INFO] Input URL: https://github.com/therealaleph/MasterHttpRelayVPN-RUST/releases/download/v1.9.14/mhrv-rs-windows-amd64.zip
-2026-05-06T08:25:07Z [INFO] Downloaded: 7307038 bytes (7.0MB)
-2026-05-06T08:25:07Z [INFO] File within safe limit, keeping original
-2026-05-06T08:25:07Z [INFO] Done
+2026-05-06T10:37:24Z [INFO] Starting download
+2026-05-06T10:37:24Z [INFO] Input URL: https://github.com/therealaleph/MasterHttpRelayVPN-RUST/releases/download/v1.9.14/mhrv-rs-linux-amd64.tar.gz
+2026-05-06T10:37:25Z [INFO] Downloaded: 8586628 bytes (8.2MB)
+2026-05-06T10:37:25Z [INFO] File within safe limit, keeping original
+2026-05-06T10:37:25Z [INFO] Done
