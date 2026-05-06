@@ -1,6 +1,5 @@
-2026-05-06T05:57:24Z [INFO] Starting download
-2026-05-06T05:57:24Z [INFO] Input URL: https://github.com/skalesapp/skales/releases/download/v10.2.2/Skales-Setup-10.2.2.exe
-2026-05-06T05:57:25Z [INFO] Downloaded: 141615062 bytes (136MB)
-2026-05-06T05:57:25Z [INFO] File exceeds 95 MiB, splitting into 95 MiB multi‑part ZIP
-  adding: Skales-Setup-10.2.2.exe (stored 0%)
-2026-05-06T05:57:26Z [INFO] Done
+2026-05-06T08:24:07Z [INFO] Starting download
+2026-05-06T08:24:07Z [INFO] Input URL: https://github.com/therealaleph/MasterHttpRelayVPN-RUST/releases/download/v1.9.14/mhrv-rs-android-universal-v1.9.14.apk
+2026-05-06T08:24:07Z [INFO] Downloaded: 41059103 bytes (40MB)
+2026-05-06T08:24:07Z [INFO] File within safe limit, keeping original
+2026-05-06T08:24:07Z [INFO] Done
